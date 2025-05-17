@@ -14,9 +14,11 @@ anthropic = "^0.21.3"
 sqlmodel = "^0.0.18"
 psycopg-binary = "^3.1.18"
 redis = "^5.0.2"
-opentelemetry-sdk = "^1.24.0"
-opentelemetry-instrumentation-fastapi = "^0.44b0"
-opentelemetry-exporter-otlp = "^1.24.0"
+opentelemetry-sdk = "1.24.0"
+# FastAPI instrumentation compatible with semconv 0.45b0 (matching SDK 1.24.0)
+opentelemetry-instrumentation-fastapi = "0.45b0"
+# OTLP exporter pinned to same minor as SDK to avoid semconv mismatch
+opentelemetry-exporter-otlp = "1.24.0"
 
 [tool.poetry.group.dev.dependencies]
 ruff = "^0.4.4"
