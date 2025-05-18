@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import AsyncIterator, Dict, List
 import os
+import uuid
 
 from pydantic import BaseModel, Field
 
@@ -13,6 +15,7 @@ from .providers import (
     AnthropicProvider
 )
 from .tools import Tool, HTTPTool, SlackTool
+from .memory import MemoryManager
 
 
 class AgentRunConfig(BaseModel):
@@ -24,15 +27,14 @@ class AgentRunConfig(BaseModel):
 
 
 class Agent:
-    """Agent that leverages LLMs to accomplish tasks.
+    """Agent that leverages LLMs to accomplish tasks."""
     
-    Supports both OpenAI and Anthropic (Claude) as providers.
-    """
-
     def __init__(self, config: AgentRunConfig) -> None:
         self._config = config
         self._provider = self._get_provider()
         self._tools = self._initialize_tools()
+        self._id = str(uuid.uuid4())
+        self._memory = MemoryManager(self._id)
 
     def _get_provider(self) -> LLMProvider:
         """Get the configured LLM provider."""
@@ -55,12 +57,19 @@ class Agent:
             for tool in self._tools.values()
         )
 
-        messages = [
-            Message(
-                role=Role.SYSTEM,
-                content=f"""You are a helpful AI assistant with access to the following tools:
+        # Get recent context from memory
+        recent_memories = self._memory.get_recent_memories(limit=5)
+        memory_context = "\n".join(
+            f"{mem.role}: {mem.content}"
+            for mem in recent_memories
+        )
+
+        system_prompt = f"""You are a helpful AI assistant with access to the following tools:
 
 {tool_descriptions}
+
+Recent conversation context:
+{memory_context}
 
 When you need to use a tool, format your response as:
 USE_TOOL: <tool_name>
@@ -68,6 +77,11 @@ USE_TOOL: <tool_name>
 END_TOOL
 
 Respond directly and concisely."""
+
+        messages = [
+            Message(
+                role=Role.SYSTEM,
+                content=system_prompt
             ),
             Message(
                 role=Role.USER,
@@ -75,5 +89,13 @@ Respond directly and concisely."""
             )
         ]
 
+        # Store the user's prompt in memory
+        self._memory.add_entry(self._config.prompt, "user")
+
+        response_chunks = []
         async for chunk in self._provider.stream_chat(messages):
+            response_chunks.append(chunk)
             yield chunk
+
+        # Store the complete response in memory
+        self._memory.add_entry("".join(response_chunks), "assistant")
