@@ -17,4 +17,4 @@ RUN poetry install --no-root
 # Copy application source
 COPY nexoriumai ./nexoriumai
 
-CMD ["poetry", "run", "uvicorn", "nexoriumai.backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["poetry", "run", "python", "-m", "uvicorn", "nexoriumai.backend.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
