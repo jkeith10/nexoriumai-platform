@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import AsyncIterator
+from typing import AsyncIterator, Dict, List
 import os
 
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from .providers import (
     OpenAIProvider,
     AnthropicProvider
 )
+from .tools import Tool, HTTPTool, SlackTool
 
 
 class AgentRunConfig(BaseModel):
@@ -31,6 +32,7 @@ class Agent:
     def __init__(self, config: AgentRunConfig) -> None:
         self._config = config
         self._provider = self._get_provider()
+        self._tools = self._initialize_tools()
 
     def _get_provider(self) -> LLMProvider:
         """Get the configured LLM provider."""
@@ -38,12 +40,34 @@ class Agent:
             return AnthropicProvider()
         return OpenAIProvider()
 
+    def _initialize_tools(self) -> Dict[str, Tool]:
+        """Initialize available tools."""
+        tools: List[Tool] = [
+            HTTPTool(),
+            SlackTool()
+        ]
+        return {tool.name: tool for tool in tools}
+
     async def run(self) -> AsyncIterator[str]:
         """Run the agent and stream responses."""
+        tool_descriptions = "\n".join(
+            f"- {tool.name}: {tool.description}"
+            for tool in self._tools.values()
+        )
+
         messages = [
             Message(
                 role=Role.SYSTEM,
-                content="You are a helpful AI assistant. Respond directly and concisely."
+                content=f"""You are a helpful AI assistant with access to the following tools:
+
+{tool_descriptions}
+
+When you need to use a tool, format your response as:
+USE_TOOL: <tool_name>
+<tool parameters as JSON>
+END_TOOL
+
+Respond directly and concisely."""
             ),
             Message(
                 role=Role.USER,
