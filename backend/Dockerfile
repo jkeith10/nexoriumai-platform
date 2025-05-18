@@ -11,7 +11,8 @@ WORKDIR /app
 # Copy only dependency declarations first for Docker layer caching
 COPY nexoriumai/pyproject.toml ./pyproject.toml
 
-RUN poetry export -f requirements.txt --without-hashes | pip install --no-cache-dir -r /dev/stdin
+# Install dependencies using poetry install instead of export
+RUN poetry install --no-root
 
 # Copy application source
 COPY nexoriumai ./nexoriumai
